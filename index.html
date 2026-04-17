@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern YT Shuffler | Cyber Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700&display=swap');
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0a0a0c;
+            --surface: #111114;
+            --surface2: #18181d;
+            --border: #222228;
+            --border2: #2e2e38;
+            --text: #e8e8f0;
+            --muted: #5a5a6e;
+            --accent: #6c63ff;
+            --accent-dim: rgba(108,99,255,0.15);
+            --accent-glow: rgba(108,99,255,0.3);
+            --danger: #ff4f4f;
+            --success: #3dffa0;
+        }
+
+        html, body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Syne', sans-serif;
+            overflow: hidden;
+        }
+
+        /* ── LAYOUT ── */
+        .app {
+            display: grid;
+            grid-template-rows: 56px 1fr;
+            height: 100vh;
+        }
+
+        /* ── HEADER ── */
+        header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 0 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+        }
+
+        .logo {
+            font-size: 13px;
+            font-family: 'DM Mono', monospace;
+            font-weight: 500;
+            letter-spacing: 0.12em;
+            color: var(--accent);
+            white-space: nowrap;
+        }
+
+        .url-bar {
+            flex: 1;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .url-input {
+            flex: 1;
+            background: var(--bg);
+            border: 1px solid var(--border2);
+            border-radius: 6px;
+            padding: 0 14px;
+            height: 34px;
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .url-input::placeholder { color: var(--muted); }
+        .url-input:focus { border-color: var(--accent); }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            height: 34px;
+            padding: 0 14px;
+            border: none;
+            border-radius: 6px;
+            font-family: 'Syne', sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+        .btn-primary:hover { background: #7b73ff; transform: translateY(-1px); }
+        .btn-primary:active { transform: translateY(0); }
+        
+        /* Стили состояния загрузки для кнопки */
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; pointer-events: none; }
+
+        .btn-ghost {
+            background: var(--surface2);
+            color: var(--text);
+            border: 1px solid var(--border2);
+        }
+        .btn-ghost:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .btn-ghost:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+
+        .btn-danger {
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid var(--border2);
+        }
+        .btn-danger:hover { border-color: var(--danger); color: var(--danger); background: rgba(255,79,79,0.08); }
+
+        /* ── MAIN ── */
+        main {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            overflow: hidden;
+        }
+
+        /* ── PLAYER PANE ── */
+        .player-pane {
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .video-wrap {
+            position: relative;
+            background: #000;
+            flex: 1; /* Плеер заполняет все свободное место */
+        }
+        .video-wrap iframe, #video-placeholder {
+            width: 100%;
+            height: 100%;
+            display: block;
+            border: none;
+        }
+
+        .placeholder {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--muted);
+            font-family: 'DM Mono', monospace;
+            font-size: 12px;
+        }
+        .placeholder-icon { font-size: 40px; opacity: 0.3; }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 20px;
+            border-top: 1px solid var(--border);
+            background: var(--surface);
+            flex-shrink: 0;
+        }
+
+        .controls .spacer { flex: 1; }
+
+        /* ── QUEUE PANE ── */
+        .queue-pane {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--surface);
+        }
+
+        .queue-header {
+            padding: 14px 16px 10px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .queue-label {
+            font-size: 10px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--muted);
+            font-family: 'DM Mono', monospace;
+        }
+        .queue-count {
+            font-size: 22px;
+            font-weight: 700;
+            line-height: 1.1;
+            margin-top: 2px;
+        }
+        .queue-count span { color: var(--accent); }
+
+        .queue-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+        .queue-list::-webkit-scrollbar { width: 4px; }
+        .queue-list::-webkit-scrollbar-track { background: transparent; }
+        .queue-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+        /* Стилизация генерируемых JS элементов (.video-item вместо .queue-item) */
+        .video-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: background 0.15s;
+            position: relative;
+        }
+        .video-item:hover { background: var(--surface2); }
+        .video-item.active {
+            background: var(--accent-dim);
+            border-left: 2px solid var(--accent);
+            padding-left: 14px;
+        }
+
+        .video-item img {
+            width: 76px;
+            height: 42px;
+            border-radius: 4px;
+            object-fit: cover;
+            flex-shrink: 0;
+            background: var(--border);
+        }
+
+        .video-item-info {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex: 1;
+        }
+
+        .video-title {
+            font-size: 11.5px;
+            line-height: 1.4;
+            color: var(--text);
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        .video-item.active .video-title { color: #fff; }
+
+        .video-meta {
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        /* ── EMPTY / ERROR STATES ── */
+        .state-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            gap: 8px;
+            color: var(--muted);
+            font-size: 12px;
+            font-family: 'DM Mono', monospace;
+            text-align: center;
+            padding: 20px;
+        }
+        .state-empty-icon { font-size: 28px; opacity: 0.25; margin-bottom: 4px; }
+
+        /* ── LOADING ── */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner {
+            width: 18px; height: 18px;
+            border: 2px solid var(--border2);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: none;
+        }
+        
+        /* ХИТРОСТЬ: Показываем спиннер, когда скрипт блокирует кнопку (disabled) */
+        .url-bar:has(#load-btn:disabled) .spinner {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <header>
+        <div class="logo">▶ SHUFFLE</div>
+        <div class="url-bar">
+            <input type="text" id="playlist-url" class="url-input" placeholder="Paste in YouTube playlist link...">
+            <div class="spinner" id="spinner"></div>
+            <button id="load-btn" class="btn btn-primary" onclick="loadPlaylist()">Load</button>
+        </div>
+    </header>
+
+    <main>
+        <div id="player-section" class="player-pane">
+            <div id="video-container" class="video-wrap">
+                <div id="video-placeholder">
+                    <div class="placeholder">
+                        <div class="placeholder-icon">◈</div>
+                        <div>Load playlist to start</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <button class="btn btn-ghost" onclick="prevVideo()">← Back</button>
+                <button class="btn btn-ghost" onclick="nextVideo()">Forward →</button>
+                <div class="spacer"></div>
+                <button class="btn btn-ghost" onclick="shufflePlaylist()">⇄ Shuffle</button>
+                <button class="btn btn-danger" onclick="unshufflePlaylist()">↺ Unshuffle</button>
+            </div>
+        </div>
+
+        <aside id="sidebar" class="queue-pane">
+            <div class="queue-header">
+                <div class="queue-label">Queue</div>
+                <div class="queue-count"><span id="video-count">0 videos</span></div>
+            </div>
+            <div id="playlist-items" class="queue-list">
+                <div class="state-empty">
+                    <div class="state-empty-icon">☰</div>
+                    <div>URL Link</div>
+                </div>
+            </div>
+        </aside>
+    </main>
+</div>
+
+<script>
+    // --- НАСТРОЙКИ ---
+    const API_KEY = 'AIzaSyBaIt7mKZFhneA4vpnTGGrj091rPc0KvCE'; 
+    
+    let player;
+    let originalList = [];
+    let currentQueue = [];
+    let currentIndex = 0;
+
+    // Инициализация YouTube API
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+
+    function onYouTubeIframeAPIReady() {
+        player = new YT.Player('video-placeholder', {
+            events: {
+                'onStateChange': (e) => {
+                    if (e.data === YT.PlayerState.ENDED) nextVideo();
+                },
+                'onError': (e) => {
+                    console.error("Ошибка плеера:", e.data);
+                    setTimeout(nextVideo, 2000); // Пропускаем проблемное видео через 2 сек
+                }
+            }
+        });
+    }
+
+    async function loadPlaylist() {
+        const url = document.getElementById('playlist-url').value;
+        const match = url.match(/[&?]list=([^&]+)/);
+        const playlistId = match ? match[1] : null;
+        
+        if (!playlistId) {
+            alert('Пожалуйста, введите корректную ссылку на плейлист (должен содержать list=...)');
+            return;
+        }
+
+        const btn = document.getElementById('load-btn');
+        btn.disabled = true;
+        btn.innerText = "Loading...";
+
+        try {
+            originalList = [];
+            let nextPageToken = '';
+            
+            // Загрузка всех видео (цикл для обхода лимита в 50 штук)
+            do {
+                const apiUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${API_KEY}&pageToken=${nextPageToken}`;
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+
+                if (data.error) throw new Error(data.error.message);
+
+                const items = data.items.map(item => {
+                    const s = item.snippet;
+                    // Безопасное получение превью
+                    const thumb = s.thumbnails?.medium?.url || s.thumbnails?.default?.url || 'https://via.placeholder.com/120x68?text=No+Thumb';
+                    
+                    return {
+                        id: s.resourceId.videoId,
+                        title: s.title,
+                        thumb: thumb
+                    };
+                });
+
+                originalList = originalList.concat(items);
+                nextPageToken = data.nextPageToken;
+                
+                btn.innerText = `Loaded ${originalList.length}...`;
+            } while (nextPageToken);
+
+            currentQueue = [...originalList];
+            document.getElementById('video-count').innerText = `${originalList.length} videos`;
+            
+            currentIndex = 0;
+            renderList();
+            playVideo(0);
+
+        } catch (error) {
+            console.error("Ошибка API:", error);
+            alert("Loading error: " + error.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "Load";
+        }
+    }
+
+    function renderList() {
+        const container = document.getElementById('playlist-items');
+        container.innerHTML = '';
+        
+        const fragment = document.createDocumentFragment();
+
+        currentQueue.forEach((video, index) => {
+            const div = document.createElement('div');
+            div.className = `video-item ${index === currentIndex ? 'active' : ''}`;
+            div.id = `v-${index}`;
+            div.onclick = () => playVideo(index);
+            
+            div.innerHTML = `
+                <img src="${video.thumb}" loading="lazy">
+                <div class="video-item-info">
+                    <div class="video-title">${video.title}</div>
+                    <div class="video-meta">#${index + 1} в очереди</div>
+                </div>
+            `;
+            fragment.appendChild(div);
+        });
+
+        container.appendChild(fragment);
+
+        // Скроллим к текущему видео
+        const activeElem = document.getElementById(`v-${currentIndex}`);
+        if (activeElem) activeElem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function playVideo(index) {
+        if (index < 0 || index >= currentQueue.length) return;
+        
+        currentIndex = index;
+        player.loadVideoById(currentQueue[currentIndex].id);
+        
+        // Обновляем визуальный статус без полной перерисовки всего списка (для скорости)
+        document.querySelectorAll('.video-item').forEach(el => el.classList.remove('active'));
+        const activeElem = document.getElementById(`v-${currentIndex}`);
+        if (activeElem) {
+            activeElem.classList.add('active');
+            activeElem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+
+    function nextVideo() {
+        if (currentIndex < currentQueue.length - 1) playVideo(currentIndex + 1);
+    }
+
+    function prevVideo() {
+        if (currentIndex > 0) playVideo(currentIndex - 1);
+    }
+
+    function shufflePlaylist() {
+        if (currentQueue.length === 0) return;
+        
+        const currentVideo = currentQueue[currentIndex];
+        
+        // Перемешивание
+        for (let i = currentQueue.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [currentQueue[i], currentQueue[j]] = [currentQueue[j], currentQueue[i]];
+        }
+        
+        currentIndex = currentQueue.indexOf(currentVideo);
+        renderList();
+    }
+
+    function unshufflePlaylist() {
+        if (originalList.length === 0) return;
+        
+        const currentVideo = currentQueue[currentIndex];
+        currentQueue = [...originalList];
+        currentIndex = currentQueue.indexOf(currentVideo);
+        renderList();
+    }
+</script>
+
+</body>
+</html>
