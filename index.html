@@ -321,8 +321,8 @@
             </div>
             
             <div class="controls">
-                <button class="btn btn-ghost" onclick="prevVideo()">← Back</button>
-                <button class="btn btn-ghost" onclick="nextVideo()">Forward →</button>
+                <button class="btn btn-ghost" onclick="prevVideo()">◀ Back</button>
+                <button class="btn btn-ghost" onclick="nextVideo()">▶</button>
                 <div class="spacer"></div>
                 <button class="btn btn-ghost" onclick="shufflePlaylist()">⇄ Shuffle</button>
                 <button class="btn btn-danger" onclick="unshufflePlaylist()">↺ Unshuffle</button>
@@ -496,7 +496,7 @@
             [currentQueue[i], currentQueue[j]] = [currentQueue[j], currentQueue[i]];
         }
 
-        // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ
+        // 👉 КЛЮЧЕВОЕ ИЗМЕНЕНИЕ
         currentIndex = 0;
 
         // запускаем первое видео новой очереди
