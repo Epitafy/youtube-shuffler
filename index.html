@@ -215,6 +215,96 @@
             cursor: pointer;
         }
 
+
+        /* ── BLACKOUT SCREEN ── */
+        .blackout-content {
+            position: absolute;
+            inset: 0;
+            z-index: 11;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 28px;
+            pointer-events: none;
+        }
+        .blackout-content.visible {
+            display: flex;
+            pointer-events: auto;
+        }
+
+        .blackout-music-icon {
+            font-size: 52px;
+            opacity: 0.18;
+            animation: pulse 3s ease-in-out infinite;
+            user-select: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.18; transform: scale(1); }
+            50%       { opacity: 0.28; transform: scale(1.04); }
+        }
+
+        .blackout-title {
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            color: rgba(232,232,240,0.25);
+            letter-spacing: 0.1em;
+            text-align: center;
+            max-width: 70%;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            user-select: none;
+        }
+
+        .blackout-seek-wrap {
+            width: 55%;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .blackout-seek {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 2px;
+            border-radius: 2px;
+            background: rgba(255,255,255,0.08);
+            outline: none;
+            cursor: pointer;
+        }
+        .blackout-seek::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.35);
+            cursor: pointer;
+            transition: background 0.15s, transform 0.15s;
+        }
+        .blackout-seek:hover::-webkit-slider-thumb {
+            background: rgba(255,255,255,0.7);
+            transform: scale(1.3);
+        }
+        .blackout-seek::-moz-range-thumb {
+            width: 10px;
+            height: 10px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.35);
+            cursor: pointer;
+        }
+        .blackout-time {
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            color: rgba(232,232,240,0.2);
+            letter-spacing: 0.06em;
+            user-select: none;
+        }
+
         .placeholder {
             height: 100%;
             display: flex;
@@ -542,6 +632,14 @@
         <div id="player-section" class="player-pane">
             <div id="video-container" class="video-wrap">
                 <div class="dimmer-overlay" id="dimmerOverlay"></div>
+                <div class="blackout-content" id="blackoutContent">
+                    <div class="blackout-music-icon">♫</div>
+                    <div class="blackout-title" id="blackoutTitle">—</div>
+                    <div class="blackout-seek-wrap">
+                        <input type="range" class="blackout-seek" id="blackoutSeek" min="0" max="100" value="0" oninput="seekFromBlackout(this.value)">
+                        <div class="blackout-time" id="blackoutTime">0:00 / 0:00</div>
+                    </div>
+                </div>
                 <div id="video-placeholder">
                     <div class="placeholder">
                         <div class="placeholder-icon">◈</div>
@@ -1085,18 +1183,28 @@
     }
     let isBlackedOut = false;
 
+    let seekPollInterval = null;
+
     function toggleBlackout() {
         isBlackedOut = !isBlackedOut;
         const icon = document.getElementById("brightnessIcon");
+        const content = document.getElementById("blackoutContent");
         if (isBlackedOut) {
             document.getElementById("dimmerOverlay").style.opacity = "1";
             icon.style.color = "var(--accent)";
             icon.title = "Restore video";
+            content.classList.add("visible");
+            // Set title
+            const titleEl = document.getElementById("current-song-title");
+            document.getElementById("blackoutTitle").textContent = titleEl ? titleEl.textContent : "—";
+            startSeekPoll();
         } else {
             const slider = document.getElementById("brightnessSlider");
             setDim(slider.value);
             icon.style.color = "";
             icon.title = "Toggle blackout";
+            content.classList.remove("visible");
+            stopSeekPoll();
         }
     }
 
@@ -1107,6 +1215,48 @@
         const slider = document.getElementById("brightnessSlider");
         const pct = (value / 85) * 100;
         slider.style.background = `linear-gradient(to right, var(--border) ${pct}%, var(--border2) ${pct}%)`;
+    }
+
+    function formatTime(sec) {
+        if (!sec || isNaN(sec)) return "0:00";
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return m + ":" + String(s).padStart(2, "0");
+    }
+
+    function startSeekPoll() {
+        stopSeekPoll();
+        seekPollInterval = setInterval(() => {
+            if (!player || typeof player.getCurrentTime !== "function") return;
+            try {
+                const cur = player.getCurrentTime();
+                const dur = player.getDuration();
+                if (dur > 0) {
+                    const pct = (cur / dur) * 100;
+                    const seekEl = document.getElementById("blackoutSeek");
+                    seekEl.value = pct;
+                    seekEl.style.background = `linear-gradient(to right, rgba(255,255,255,0.35) ${pct}%, rgba(255,255,255,0.08) ${pct}%)`;
+                    document.getElementById("blackoutTime").textContent = formatTime(cur) + " / " + formatTime(dur);
+                }
+                // keep title in sync
+                const titleEl = document.getElementById("current-song-title");
+                if (titleEl) document.getElementById("blackoutTitle").textContent = titleEl.textContent;
+            } catch(e) {}
+        }, 1000);
+    }
+
+    function stopSeekPoll() {
+        if (seekPollInterval) { clearInterval(seekPollInterval); seekPollInterval = null; }
+    }
+
+    function seekFromBlackout(pct) {
+        if (!player || typeof player.getDuration !== "function") return;
+        try {
+            const dur = player.getDuration();
+            player.seekTo((pct / 100) * dur, true);
+            const seekEl = document.getElementById("blackoutSeek");
+            seekEl.style.background = `linear-gradient(to right, rgba(255,255,255,0.35) ${pct}%, rgba(255,255,255,0.08) ${pct}%)`;
+        } catch(e) {}
     }
 </script>
 </body>
