@@ -265,6 +265,10 @@
             position: relative;
             width: 88px;
             height: 88px;
+            transition: transform 0.08s ease;
+        }
+        .vinyl-wrap:active {
+            transform: scale(0.93);
         }
         .vinyl {
             width: 88px;
@@ -276,7 +280,8 @@
                 #1a1a22 180deg, #0f0f14 210deg, #1a1a22 240deg,
                 #0f0f14 270deg, #1a1a22 300deg, #0f0f14 330deg, #1a1a22 360deg
             );
-            animation: spin 8s linear infinite;
+            animation: vinylSpin 8s linear infinite;
+            animation-play-state: paused;
             box-shadow: 0 0 0 1px rgba(108,99,255,0.08),
                         0 0 24px rgba(108,99,255,0.12),
                         0 0 60px rgba(108,99,255,0.06);
@@ -304,11 +309,18 @@
                 rgba(255,255,255,0.015) 0deg 1deg,
                 transparent 1deg 4deg
             );
-            animation: spin 8s linear infinite;
+            animation: vinylSpin 8s linear infinite;
+            animation-play-state: paused;
         }
-        @keyframes spin {
+        @keyframes vinylSpin {
             from { transform: rotate(0deg); }
             to   { transform: rotate(360deg); }
+        }
+
+        /* vinyl spins only when playing */
+        .vinyl-playing .vinyl,
+        .vinyl-playing .vinyl-grooves {
+            animation-play-state: running;
         }
 
         .blackout-title {
@@ -376,22 +388,6 @@
         }
 
         /* ── EXTRA EYE CANDY ── */
-
-        /* Scanline overlay on video */
-        .scanlines {
-            position: absolute;
-            inset: 0;
-            z-index: 9;
-            pointer-events: none;
-            background: repeating-linear-gradient(
-                to bottom,
-                transparent 0px,
-                transparent 2px,
-                rgba(0,0,0,0.03) 2px,
-                rgba(0,0,0,0.03) 4px
-            );
-            opacity: 0.6;
-        }
 
         /* Active queue item glow bar */
         .video-item.active::before {
@@ -664,7 +660,7 @@
             transition: all 0.15s;
             margin: 0 12px 8px 12px;
             min-width: 0;
-            position: relative;  /* ← добавь это */
+            position: relative;
         }
 
         .playlist-item:hover {
@@ -749,23 +745,9 @@
             transition: transform 0.08s ease !important;
         }
 
-
-        /* pause vinyl when paused */
-        .vinyl-paused .vinyl,
-        .vinyl-paused .vinyl-grooves {
-            animation-play-state: paused;
-        }
-
-        .vinyl-wrap {
-            transition: transform 0.08s ease;
-        }
-        .vinyl-wrap:active {
-            transform: scale(0.93);
-        }
     </style>
 </head>
 <body>
-
 
 <!-- Silent audio to capture media session from YouTube iframe -->
 <audio id="silentAudio" loop>
@@ -891,70 +873,42 @@
         localStorage.setItem('shuffleFavorites', JSON.stringify(favorites));
     }
 
-    // Calculate horizontal tolerance based on song name length
     function calculateTolerance() {
         const titleEl = document.getElementById('current-song-title');
         const textLength = titleEl.textContent.length;
-        // Примерно 6px за символ, минимум 50px
         horizontalTolerance = Math.max(50, textLength * 6);
     }
 
-    // Handle mouse enter
     function handleSongMouseEnter(e) {
         clearTimeout(leaveTimeout);
-        
-        hoverTimeout = setTimeout(() => {
-            showPlaylistName();
-        }, 200);
+        hoverTimeout = setTimeout(() => { showPlaylistName(); }, 200);
     }
 
-    // Handle mouse leave
     function handleSongMouseLeave(e) {
         clearTimeout(hoverTimeout);
-        
         const songElement = document.getElementById('current-song');
         const rect = songElement.getBoundingClientRect();
-        
         leaveTimeout = setTimeout(() => {
-            // Проверяем, вернулась ли мышка в зону
-            if (e.clientY < rect.top - 20 || e.clientY > rect.bottom + 20) {
-                showSongName();
-            }
+            if (e.clientY < rect.top - 20 || e.clientY > rect.bottom + 20) showSongName();
         }, 100);
     }
 
-    // Track mouse move for tolerance
     document.addEventListener('mousemove', (e) => {
         const songElement = document.getElementById('current-song');
         if (!songElement) return;
-        
         const rect = songElement.getBoundingClientRect();
-        
-        // Вертикальный допуск: 20px сверху и снизу
         const verticalTolerance = 20;
-        
-        // Горизонтальный допуск: адаптивный
-        const isInVerticalZone = e.clientY >= rect.top - verticalTolerance && 
-                                 e.clientY <= rect.bottom + verticalTolerance;
-        
-        const isInHorizontalZone = e.clientX >= rect.left - horizontalTolerance && 
-                                   e.clientX <= rect.right + horizontalTolerance;
-        
-        if (isShowingPlaylistName && (!isInVerticalZone || !isInHorizontalZone)) {
-            showSongName();
-        }
+        const isInVerticalZone = e.clientY >= rect.top - verticalTolerance && e.clientY <= rect.bottom + verticalTolerance;
+        const isInHorizontalZone = e.clientX >= rect.left - horizontalTolerance && e.clientX <= rect.right + horizontalTolerance;
+        if (isShowingPlaylistName && (!isInVerticalZone || !isInHorizontalZone)) showSongName();
     });
 
-    // Show playlist name with animation
     function showPlaylistName() {
         if (isShowingPlaylistName || !currentPlaylistTitle) return;
         isShowingPlaylistName = true;
-        
         const titleEl = document.getElementById('current-song-title');
-        
         titleEl.classList.remove('fade-in');
         titleEl.classList.add('fade-out');
-        
         setTimeout(() => {
             titleEl.textContent = currentPlaylistTitle;
             titleEl.title = currentPlaylistTitle;
@@ -963,16 +917,12 @@
         }, 150);
     }
 
-    // Show song name with animation
     function showSongName() {
         if (!isShowingPlaylistName) return;
         isShowingPlaylistName = false;
-        
         const titleEl = document.getElementById('current-song-title');
-        
         titleEl.classList.remove('fade-in');
         titleEl.classList.add('fade-out');
-        
         setTimeout(() => {
             if (currentQueue.length === 0) {
                 titleEl.textContent = 'No songs';
@@ -988,12 +938,9 @@
         }, 150);
     }
 
-    // Update current song display
     function updateCurrentSongDisplay() {
         if (isShowingPlaylistName) return;
-        
         const titleEl = document.getElementById('current-song-title');
-        
         if (currentQueue.length === 0) {
             titleEl.textContent = 'No songs';
             titleEl.title = '';
@@ -1002,21 +949,17 @@
             titleEl.textContent = currentSong.title;
             titleEl.title = currentSong.title;
         }
-        
         calculateTolerance();
     }
 
-    // Toggle repeat mode
     function toggleRepeat() {
         repeatMode = (repeatMode + 1) % 3;
         updateRepeatButton();
     }
 
-    // Update repeat button appearance
     function updateRepeatButton() {
         const btn = document.getElementById('repeat-btn');
         btn.classList.remove('active', 'one');
-        
         if (repeatMode === 0) {
             btn.innerHTML = '↻';
             btn.title = 'No repeat';
@@ -1031,12 +974,10 @@
         }
     }
 
-    // Switch tabs
     function switchTab(tab) {
         const queueSection = document.getElementById('queue-section');
         const favSection = document.getElementById('favorites-section');
         const tabs = document.querySelectorAll('.tab-btn');
-
         if (tab === 'queue') {
             queueSection.style.display = 'flex';
             favSection.style.display = 'none';
@@ -1050,114 +991,73 @@
         }
     }
 
-    // Toggle favorite
     function toggleFavorite() {
-        if (!currentPlaylistUrl) {
-            alert('Load playlist first');
-            return;
-        }
-
+        if (!currentPlaylistUrl) { alert('Load playlist first'); return; }
         const existingIndex = favorites.findIndex(f => f.url === currentPlaylistUrl);
         const starBtn = document.getElementById('star-btn');
-
         if (existingIndex > -1) {
             favorites.splice(existingIndex, 1);
             starBtn.classList.remove('active');
         } else {
-            favorites.push({
-                url: currentPlaylistUrl,
-                title: currentPlaylistTitle,
-                videoCount: currentQueue.length,
-                savedAt: new Date().toISOString()
-            });
+            favorites.push({ url: currentPlaylistUrl, title: currentPlaylistTitle, videoCount: currentQueue.length, savedAt: new Date().toISOString() });
             starBtn.classList.add('active');
         }
-
         saveFavorites();
         updateFavoritesUI();
     }
 
-    // Update favorites UI
     function updateFavoritesUI() {
         const favList = document.getElementById('favorites-list');
         document.getElementById('favorites-count').innerText = `${favorites.length} saved`;
-
         if (favorites.length === 0) {
-            favList.innerHTML = `
-                <div class="state-empty">
-                    <div class="state-empty-icon">★</div>
-                    <div>No saved playlists</div>
-                </div>
-            `;
+            favList.innerHTML = `<div class="state-empty"><div class="state-empty-icon">★</div><div>No saved playlists</div></div>`;
             return;
         }
-
         favList.innerHTML = '';
         favorites.forEach((fav, index) => {
             const div = document.createElement('div');
             div.className = 'playlist-item';
             div.onclick = () => loadFavoritPlaylist(index);
-            const date = new Date(fav.savedAt).toLocaleDateString('en-US');
-            
             div.innerHTML = `
                 <div class="playlist-item-title" title="${fav.title}">${fav.title}</div>
-                <div class="playlist-item-meta">
-                    <span>${fav.videoCount} videos</span>
-                </div>
+                <div class="playlist-item-meta"><span>${fav.videoCount} videos</span></div>
                 <button class="delete-btn" onclick="event.stopPropagation(); deleteFavorite(${index})">🗑️</button>
             `;
             favList.appendChild(div);
         });
     }
 
-    // Load favorite playlist
     function loadFavoritPlaylist(index) {
         if (index < 0 || index >= favorites.length) return;
-        
-        const fav = favorites[index];
-        document.getElementById('playlist-url').value = fav.url;
+        document.getElementById('playlist-url').value = favorites[index].url;
         loadPlaylist();
     }
 
-    // Delete favorite
     function deleteFavorite(index) {
         if (confirm('Are you sure?')) {
             const deletedUrl = favorites[index].url;
             favorites.splice(index, 1);
             saveFavorites();
             updateFavoritesUI();
-            
-            if (currentPlaylistUrl === deletedUrl) {
-                document.getElementById('star-btn').classList.remove('active');
-            }
+            if (currentPlaylistUrl === deletedUrl) document.getElementById('star-btn').classList.remove('active');
         }
     }
 
-    // Update star button status
     function updateStarButton() {
         const starBtn = document.getElementById('star-btn');
         const isFavorite = favorites.some(f => f.url === currentPlaylistUrl);
-        
-        if (isFavorite) {
-            starBtn.classList.add('active');
-        } else {
-            starBtn.classList.remove('active');
-        }
+        if (isFavorite) starBtn.classList.add('active');
+        else starBtn.classList.remove('active');
     }
 
-    // Get playlist title from YouTube
     async function getPlaylistTitle(playlistId) {
         try {
             const apiUrl = `https://www.googleapis.com/youtube/v3/playlists?part=snippet&id=${playlistId}&key=${API_KEY}`;
             const response = await fetch(apiUrl);
             const data = await response.json();
-            
-            if (data.items && data.items.length > 0) {
-                return data.items[0].snippet.title;
-            }
+            if (data.items && data.items.length > 0) return data.items[0].snippet.title;
             return `Playlist ${new Date().toLocaleString()}`;
         } catch (error) {
-            console.error("Error fetching playlist title:", error);
             return `Playlist ${new Date().toLocaleString()}`;
         }
     }
@@ -1172,6 +1072,8 @@
             events: {
                 'onStateChange': (e) => {
                     if (e.data === YT.PlayerState.ENDED) handleVideoEnd();
+                    // Vinyl spins only when actually playing
+                    setVinylSpin(e.data === YT.PlayerState.PLAYING);
                 },
                 'onError': (e) => {
                     console.error("Player error:", e.data);
@@ -1179,33 +1081,22 @@
                 }
             }
         });
-        
         loadFavorites();
-        
-        // Добавляем event listeners к элементу песни
         const songElement = document.getElementById('current-song');
         songElement.addEventListener('mouseenter', handleSongMouseEnter);
         songElement.addEventListener('mouseleave', handleSongMouseLeave);
     }
 
-    // Handle video end with repeat mode
     function handleVideoEnd() {
-        if (repeatMode === 2) {
-            playVideo(currentIndex);
-        } else {
-            nextVideo();
-        }
+        if (repeatMode === 2) playVideo(currentIndex);
+        else nextVideo();
     }
 
     async function loadPlaylist() {
         const url = document.getElementById('playlist-url').value;
         const match = url.match(/[&?]list=([^&]+)/);
         const playlistId = match ? match[1] : null;
-        
-        if (!playlistId) {
-            alert('Please paste a valid YouTube playlist link');
-            return;
-        }
+        if (!playlistId) { alert('Please paste a valid YouTube playlist link'); return; }
 
         currentPlaylistUrl = url;
         const btn = document.getElementById('load-btn');
@@ -1214,44 +1105,31 @@
 
         try {
             currentPlaylistTitle = await getPlaylistTitle(playlistId);
-            
             originalList = [];
             let nextPageToken = '';
-            
             do {
                 const apiUrl = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${API_KEY}&pageToken=${nextPageToken}`;
                 const response = await fetch(apiUrl);
                 const data = await response.json();
-
                 if (data.error) throw new Error(data.error.message);
-
                 const items = data.items.map(item => {
                     const s = item.snippet;
                     const thumb = s.thumbnails?.medium?.url || s.thumbnails?.default?.url || 'https://via.placeholder.com/120x68?text=No+Thumb';
-                    
-                    return {
-                        id: s.resourceId.videoId,
-                        title: s.title,
-                        thumb: thumb
-                    };
+                    return { id: s.resourceId.videoId, title: s.title, thumb: thumb };
                 });
-
                 originalList = originalList.concat(items);
                 nextPageToken = data.nextPageToken;
-                
                 btn.innerText = `Loaded ${originalList.length}...`;
             } while (nextPageToken);
 
             currentQueue = [...originalList];
             document.getElementById('video-count').innerText = `${originalList.length} videos`;
-            
             currentIndex = 0;
             repeatMode = 0;
             updateRepeatButton();
             renderList();
             playVideo(0);
             updateStarButton();
-
         } catch (error) {
             console.error("API Error:", error);
             alert("Error loading playlist: " + error.message);
@@ -1264,15 +1142,12 @@
     function renderList() {
         const container = document.getElementById('playlist-items');
         container.innerHTML = '';
-        
         const fragment = document.createDocumentFragment();
-
         currentQueue.forEach((video, index) => {
             const div = document.createElement('div');
             div.className = `video-item ${index === currentIndex ? 'active' : ''}`;
             div.id = `v-${index}`;
             div.onclick = () => playVideo(index);
-            
             div.innerHTML = `
                 <img src="${video.thumb}" loading="lazy">
                 <div class="video-item-info">
@@ -1282,24 +1157,17 @@
             `;
             fragment.appendChild(div);
         });
-
         container.appendChild(fragment);
-
         const activeElem = document.getElementById(`v-${currentIndex}`);
         if (activeElem) activeElem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function playVideo(index) {
         if (index < 0 || index >= currentQueue.length) return;
-        
         currentIndex = index;
         player.loadVideoById(currentQueue[currentIndex].id);
         updateMediaSession();
-        
-        if (!isShowingPlaylistName) {
-            updateCurrentSongDisplay();
-        }
-        
+        if (!isShowingPlaylistName) updateCurrentSongDisplay();
         document.querySelectorAll('.video-item').forEach(el => el.classList.remove('active'));
         const activeElem = document.getElementById(`v-${currentIndex}`);
         if (activeElem) {
@@ -1309,11 +1177,8 @@
     }
 
     function nextVideo() {
-        if (currentIndex < currentQueue.length - 1) {
-            playVideo(currentIndex + 1);
-        } else if (repeatMode === 1) {
-            playVideo(0);
-        }
+        if (currentIndex < currentQueue.length - 1) playVideo(currentIndex + 1);
+        else if (repeatMode === 1) playVideo(0);
     }
 
     function prevVideo() {
@@ -1322,12 +1187,10 @@
 
     function shufflePlaylist() {
         if (currentQueue.length === 0) return;
-
         for (let i = currentQueue.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [currentQueue[i], currentQueue[j]] = [currentQueue[j], currentQueue[i]];
         }
-
         currentIndex = 0;
         playVideo(currentIndex);
         renderList();
@@ -1335,15 +1198,14 @@
 
     function unshufflePlaylist() {
         if (originalList.length === 0) return;
-        
         const currentVideo = currentQueue[currentIndex];
         currentQueue = [...originalList];
         currentIndex = currentQueue.indexOf(currentVideo);
         playVideo(currentIndex);
         renderList();
     }
-    let isBlackedOut = false;
 
+    let isBlackedOut = false;
     let seekPollInterval = null;
 
     function toggleBlackout() {
@@ -1355,7 +1217,6 @@
             icon.style.color = "var(--accent)";
             icon.title = "Restore video";
             blackoutEl.classList.add("visible");
-            // Set title
             const titleEl = document.getElementById("current-song-title");
             document.getElementById("blackoutTitle").textContent = titleEl ? titleEl.textContent : "—";
             startSeekPoll();
@@ -1399,7 +1260,6 @@
                     seekEl.style.background = `linear-gradient(to right, rgba(255,255,255,0.35) ${pct}%, rgba(255,255,255,0.08) ${pct}%)`;
                     document.getElementById("blackoutTime").textContent = formatTime(cur) + " / " + formatTime(dur);
                 }
-                // keep title in sync
                 const titleEl = document.getElementById("current-song-title");
                 if (titleEl) document.getElementById("blackoutTitle").textContent = titleEl.textContent;
             } catch(e) {}
@@ -1420,117 +1280,41 @@
         } catch(e) {}
     }
 
-    // ── MEDIA SESSION API (наушники / медиаклавиши) ──
+    // ── VINYL SPIN CONTROL ──
+    function setVinylSpin(playing) {
+        const vinylWrap = document.querySelector('.vinyl-wrap');
+        if (!vinylWrap) return;
+        if (playing) vinylWrap.classList.add('vinyl-playing');
+        else vinylWrap.classList.remove('vinyl-playing');
+    }
+
+    // Click on vinyl = toggle play/pause
+    function toggleBlackoutPlay() {
+        if (!player || typeof player.getPlayerState !== 'function') return;
+        const state = player.getPlayerState();
+        if (state === 1) player.pauseVideo();
+        else player.playVideo();
+        // setVinylSpin is called automatically via onStateChange
+    }
+
+    // ── MEDIA SESSION API ──
     function updateMediaSession() {
         if (!('mediaSession' in navigator)) return;
         const video = currentQueue[currentIndex];
         if (!video) return;
-
-        // Play silent audio to take over media session from YouTube iframe
         const audio = document.getElementById('silentAudio');
-        if (audio && audio.paused) {
-            audio.volume = 0;
-            audio.play().catch(() => {});
-        }
-
+        if (audio && audio.paused) { audio.volume = 0; audio.play().catch(() => {}); }
         navigator.mediaSession.metadata = new MediaMetadata({
             title: video.title,
             artist: 'YouTube Playlist',
             artwork: [{ src: video.thumb, sizes: '512x512', type: 'image/jpeg' }]
         });
-
-        navigator.mediaSession.setActionHandler('play', () => {
-            try { player.playVideo(); } catch(e) {}
-            navigator.mediaSession.playbackState = 'playing';
-        });
-        navigator.mediaSession.setActionHandler('pause', () => {
-            try { player.pauseVideo(); } catch(e) {}
-            navigator.mediaSession.playbackState = 'paused';
-        });
-        navigator.mediaSession.setActionHandler('previoustrack', () => {
-            prevVideo();
-        });
-        navigator.mediaSession.setActionHandler('nexttrack', () => {
-            nextVideo();
-        });
-        navigator.mediaSession.setActionHandler('seekto', (details) => {
-            try { player.seekTo(details.seekTime, true); } catch(e) {}
-        });
-
+        navigator.mediaSession.setActionHandler('play', () => { try { player.playVideo(); } catch(e) {} navigator.mediaSession.playbackState = 'playing'; });
+        navigator.mediaSession.setActionHandler('pause', () => { try { player.pauseVideo(); } catch(e) {} navigator.mediaSession.playbackState = 'paused'; });
+        navigator.mediaSession.setActionHandler('previoustrack', () => { prevVideo(); });
+        navigator.mediaSession.setActionHandler('nexttrack', () => { nextVideo(); });
+        navigator.mediaSession.setActionHandler('seekto', (details) => { try { player.seekTo(details.seekTime, true); } catch(e) {} });
         navigator.mediaSession.playbackState = 'playing';
-    }
-
-
-    // ── PARTICLE SYSTEM ──
-    let particleAnim = null;
-    const particles = [];
-
-    function initParticles() {
-        const canvas = document.getElementById('particleCanvas');
-        if (!canvas) return;
-        const container = canvas.parentElement;
-        canvas.width = container.offsetWidth;
-        canvas.height = container.offsetHeight;
-        const ctx = canvas.getContext('2d');
-        particles.length = 0;
-
-        const count = 38;
-        for (let i = 0; i < count; i++) {
-            particles.push({
-                x: Math.random() * canvas.width,
-                y: Math.random() * canvas.height,
-                r: Math.random() * 1.4 + 0.3,
-                vx: (Math.random() - 0.5) * 0.25,
-                vy: (Math.random() - 0.5) * 0.25,
-                alpha: Math.random() * 0.25 + 0.05,
-                pulse: Math.random() * Math.PI * 2,
-                pulseSpeed: Math.random() * 0.012 + 0.004,
-            });
-        }
-
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            particles.forEach(p => {
-                p.x += p.vx;
-                p.y += p.vy;
-                p.pulse += p.pulseSpeed;
-                if (p.x < 0) p.x = canvas.width;
-                if (p.x > canvas.width) p.x = 0;
-                if (p.y < 0) p.y = canvas.height;
-                if (p.y > canvas.height) p.y = 0;
-
-                const a = p.alpha * (0.6 + 0.4 * Math.sin(p.pulse));
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(108,99,255,${a})`;
-                ctx.fill();
-            });
-            particleAnim = requestAnimationFrame(draw);
-        }
-        draw();
-    }
-
-    function stopParticles() {
-        if (particleAnim) { cancelAnimationFrame(particleAnim); particleAnim = null; }
-        const canvas = document.getElementById('particleCanvas');
-        if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-    }
-
-
-    function toggleBlackoutPlay() {
-        if (!player || typeof player.getPlayerState !== 'function') return;
-        const state = player.getPlayerState();
-        const btn = document.getElementById('blackoutPlayPause');
-        const vinylWrap = document.querySelector('.vinyl-wrap');
-        if (state === 1) { // playing → pause
-            player.pauseVideo();
-            btn.textContent = '▶';
-            vinylWrap.classList.add('vinyl-paused');
-        } else { // paused → play
-            player.playVideo();
-            btn.textContent = '⏸';
-            vinylWrap.classList.remove('vinyl-paused');
-        }
     }
 
 </script>
