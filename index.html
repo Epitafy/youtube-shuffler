@@ -617,6 +617,11 @@
 </head>
 <body>
 
+
+<!-- Silent audio to capture media session from YouTube iframe -->
+<audio id="silentAudio" loop>
+    <source src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=" type="audio/wav">
+</audio>
 <div class="app">
     <header>
         <div class="logo">▶ SHUFFLE</div>
@@ -1265,6 +1270,13 @@
         if (!('mediaSession' in navigator)) return;
         const video = currentQueue[currentIndex];
         if (!video) return;
+
+        // Play silent audio to take over media session from YouTube iframe
+        const audio = document.getElementById('silentAudio');
+        if (audio && audio.paused) {
+            audio.volume = 0;
+            audio.play().catch(() => {});
+        }
 
         navigator.mediaSession.metadata = new MediaMetadata({
             title: video.title,
