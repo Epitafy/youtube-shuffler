@@ -315,7 +315,7 @@
             color: rgba(232,232,240,0.3);
             letter-spacing: 0.1em;
             text-align: center;
-            max-width: 70%;
+            max-width: 88%;
             overflow: hidden;
             white-space: nowrap;
             text-overflow: ellipsis;
@@ -323,7 +323,7 @@
         }
 
         .blackout-seek-wrap {
-            width: 55%;
+            width: 75%;
             display: flex;
             flex-direction: column;
             gap: 6px;
@@ -745,6 +745,19 @@
             transition: transform 0.08s ease !important;
         }
 
+
+        /* pause vinyl when paused */
+        .vinyl-paused .vinyl,
+        .vinyl-paused .vinyl-grooves {
+            animation-play-state: paused;
+        }
+
+        .vinyl-wrap {
+            transition: transform 0.08s ease;
+        }
+        .vinyl-wrap:active {
+            transform: scale(0.93);
+        }
     </style>
 </head>
 <body>
@@ -771,11 +784,12 @@
                 <div class="dimmer-overlay" id="dimmerOverlay"></div>
                 <div class="blackout-content" id="blackoutContent">
                     <div class="blackout-inner">
-                        <div class="vinyl-wrap">
+                        <div class="vinyl-wrap" onclick="toggleBlackoutPlay()" title="Play / Pause" style="cursor:pointer">
                             <div class="vinyl"></div>
                             <div class="vinyl-grooves"></div>
                         </div>
                         <div class="blackout-title" id="blackoutTitle">—</div>
+
                         <div class="blackout-seek-wrap">
                             <input type="range" class="blackout-seek" id="blackoutSeek" min="0" max="100" value="0" oninput="seekFromBlackout(this.value)">
                             <div class="blackout-time" id="blackoutTime">0:00 / 0:00</div>
@@ -1496,6 +1510,23 @@
         if (particleAnim) { cancelAnimationFrame(particleAnim); particleAnim = null; }
         const canvas = document.getElementById('particleCanvas');
         if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+
+    function toggleBlackoutPlay() {
+        if (!player || typeof player.getPlayerState !== 'function') return;
+        const state = player.getPlayerState();
+        const btn = document.getElementById('blackoutPlayPause');
+        const vinylWrap = document.querySelector('.vinyl-wrap');
+        if (state === 1) { // playing → pause
+            player.pauseVideo();
+            btn.textContent = '▶';
+            vinylWrap.classList.add('vinyl-paused');
+        } else { // paused → play
+            player.playVideo();
+            btn.textContent = '⏸';
+            vinylWrap.classList.remove('vinyl-paused');
+        }
     }
 
 </script>
