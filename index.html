@@ -215,6 +215,15 @@
             cursor: pointer;
         }
 
+        /* Vertical stack: brightness on top, volume below */
+        .controls-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .controls-stack .brightness-wrap { gap: 7px; }
+
 
         /* ── BLACKOUT SCREEN ── */
         .blackout-content {
@@ -1100,9 +1109,15 @@
                 <button id="repeat-btn" class="btn btn-repeat" onclick="toggleRepeat()" title="Repeat">↻</button>
                 <button class="btn btn-ghost" onclick="shufflePlaylist()">⇄ Shuffle</button>
                 <button class="btn btn-danger" onclick="unshufflePlaylist()">↺ Unshuffle</button>
-                <div class="brightness-wrap">
-                    <span class="brightness-icon" id="brightnessIcon" onclick="toggleBlackout()" style="cursor:pointer;user-select:none" title="Toggle blackout">☀</span>
-                    <input type="range" class="brightness-slider" id="brightnessSlider" min="0" max="85" value="0" oninput="setDim(this.value)" title="Dim player">
+                <div class="controls-stack">
+                    <div class="brightness-wrap">
+                        <span class="brightness-icon" id="brightnessIcon" onclick="toggleBlackout()" style="cursor:pointer;user-select:none" title="Toggle blackout">☀</span>
+                        <input type="range" class="brightness-slider" id="brightnessSlider" min="0" max="85" value="0" oninput="setDim(this.value)" title="Dim player">
+                    </div>
+                    <div class="brightness-wrap">
+                        <span class="brightness-icon" id="volumeIcon" onclick="toggleMute()" style="cursor:pointer;user-select:none" title="Mute / unmute">♫</span>
+                        <input type="range" class="brightness-slider" id="volumeSlider" min="0" max="100" value="100" oninput="setVolume(this.value)" title="Volume">
+                    </div>
                 </div>
             </div>
         </div>
@@ -2083,6 +2098,7 @@
     function onYouTubeIframeAPIReady() {
         player = new YT.Player('video-placeholder', {
             events: {
+                'onReady': () => { try { applyStoredVolume(); } catch(e) {} },
                 'onStateChange': (e) => {
                     if (e.data === YT.PlayerState.ENDED) handleVideoEnd();
                     // Vinyl spins only when actually playing
@@ -2104,6 +2120,11 @@
         });
         loadFavorites();
         wireLogoInteractions();
+        // Первоначальная отрисовка ползунка громкости (пока player ещё не onReady)
+        try {
+            const stored = parseInt(localStorage.getItem('shuffleVolume') || '100', 10);
+            _paintVolumeSlider(isNaN(stored) ? 100 : Math.max(0, Math.min(100, stored)));
+        } catch(e) {}
         const songElement = document.getElementById('current-song');
         songElement.addEventListener('mouseenter', handleSongMouseEnter);
     }
@@ -2303,6 +2324,47 @@
         const slider = document.getElementById("brightnessSlider");
         const pct = (value / 85) * 100;
         slider.style.background = `linear-gradient(to right, var(--border) ${pct}%, var(--border2) ${pct}%)`;
+    }
+
+    // ---- VOLUME ----
+    let _volumeMuted = false;
+    function _paintVolumeSlider(v) {
+        const slider = document.getElementById('volumeSlider');
+        if (!slider) return;
+        slider.value = v;
+        slider.style.background = `linear-gradient(to right, var(--border) ${v}%, var(--border2) ${v}%)`;
+        const icon = document.getElementById('volumeIcon');
+        if (icon) icon.textContent = (v == 0 || _volumeMuted) ? '∡' : (v < 40 ? '♪' : '♫');
+    }
+    function setVolume(value) {
+        const v = Math.max(0, Math.min(100, parseInt(value, 10) || 0));
+        _volumeMuted = (v === 0);
+        try {
+            if (player && typeof player.setVolume === 'function') {
+                player.setVolume(v);
+                if (v === 0 && typeof player.mute === 'function') player.mute();
+                else if (typeof player.unMute === 'function') player.unMute();
+            }
+        } catch (e) {}
+        localStorage.setItem('shuffleVolume', String(v));
+        _paintVolumeSlider(v);
+    }
+    function toggleMute() {
+        const slider = document.getElementById('volumeSlider');
+        if (!slider) return;
+        const cur = parseInt(slider.value, 10) || 0;
+        if (cur > 0) {
+            localStorage.setItem('shuffleVolumePrev', String(cur));
+            setVolume(0);
+        } else {
+            const prev = parseInt(localStorage.getItem('shuffleVolumePrev') || '80', 10);
+            setVolume(prev > 0 ? prev : 80);
+        }
+    }
+    function applyStoredVolume() {
+        const stored = parseInt(localStorage.getItem('shuffleVolume') || '100', 10);
+        const v = isNaN(stored) ? 100 : Math.max(0, Math.min(100, stored));
+        setVolume(v);
     }
 
     function formatTime(sec) {
