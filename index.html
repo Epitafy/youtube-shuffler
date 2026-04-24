@@ -1331,7 +1331,7 @@
 
     // Broadcast helpers
     function lobbyBroadcast(patch) {
-        if (!LOBBY.ref || LOBBY.applyingRemote) return;
+        if (!LOBBY.ref || LOBBY.applyingRemote || LOBBY.suppressBroadcast) return;
         patch.updatedBy = LOBBY.clientId;
         patch.updatedAt = firebase.database.ServerValue.TIMESTAMP;
         LOBBY.ref.child('state').update(patch).catch(err => console.warn('broadcast failed:', err));
@@ -1385,16 +1385,36 @@
                 renderList();
             }
 
-            // 2. Current index changed → play that video (no re-broadcast)
-            if (typeof state.currentIndex === 'number' && state.currentIndex !== currentIndex) {
-                playVideo(state.currentIndex);
+            // 2. Force-load видео по фактическому ID, а не по индексу.
+            // Иначе: при смене плейлиста индекс остаётся 0→0 → проверка пропускает loadVideoById,
+            // и я продолжаю слушать старый трек.
+            const targetIndex = (typeof state.currentIndex === 'number') ? state.currentIndex : currentIndex;
+            const targetVideo = currentQueue[targetIndex];
+            let videoLoadedNow = false;
+            if (targetVideo) {
+                let curVid = '';
+                try {
+                    if (player && typeof player.getVideoData === 'function') {
+                        curVid = (player.getVideoData() || {}).video_id || '';
+                    }
+                } catch(e) {}
+                if (curVid !== targetVideo.id) {
+                    playVideo(targetIndex);
+                    videoLoadedNow = true;
+                } else if (targetIndex !== currentIndex) {
+                    // Видео то же, но индекс разъехался — обновим подсветку в списке.
+                    currentIndex = targetIndex;
+                    document.querySelectorAll('.video-item').forEach(el => el.classList.remove('active'));
+                    const a = document.getElementById(`v-${currentIndex}`);
+                    if (a) { a.classList.add('active'); a.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+                }
             }
 
-            // 3. Playback time / state
-            if (player && typeof player.getPlayerState === 'function') {
+            // 3. Playback time / state — пропускаем, если только что начали грузить новое видео
+            // (я сам выставил currentTime=0/play в playVideo, для seek будет отдельный тик)
+            if (!videoLoadedNow && player && typeof player.getPlayerState === 'function') {
                 const localState = player.getPlayerState();
                 const wantPlaying = state.playState === 'playing';
-                // compute target time from anchor + offset
                 let target = typeof state.currentTime === 'number' ? state.currentTime : null;
                 if (target !== null && wantPlaying && state.timeAnchor) {
                     const elapsed = (nowServer() - state.timeAnchor) / 1000;
@@ -2046,9 +2066,12 @@
             // Подставляем длительности из кеша мгновенно, остальные подтянем фоном
             applyCachedDurations(originalList);
             renderList();
-            playVideo(0);
+            // Подавляем внутренний broadcast из playVideo, чтобы
+            // отправить всё одной атомарной записью ниже (сначала queue+url, потом index).
+            LOBBY.suppressBroadcast = true;
+            try { playVideo(0); } finally { LOBBY.suppressBroadcast = false; }
             updateStarButton();
-            // Синхронизация с лобби: при загрузке плейлиста шлём полный state
+            // Синхронизация с лобби: при загрузке плейлиста шлём полный state одной записью
             if (LOBBY.ref && !LOBBY.applyingRemote) {
                 lobbyBroadcast({
                     playlistUrl: currentPlaylistUrl || '',
