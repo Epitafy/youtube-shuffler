@@ -81,6 +81,16 @@
         }
         .url-input::placeholder { color: var(--muted); }
         .url-input:focus { border-color: var(--accent); }
+        /* Chrome иногда помечает программно вставленное значение как autofill — перебиваем белый фон */
+        .url-input:-webkit-autofill,
+        .url-input:-webkit-autofill:hover,
+        .url-input:-webkit-autofill:focus,
+        .url-input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 1000px var(--bg) inset !important;
+            -webkit-text-fill-color: var(--text) !important;
+            caret-color: var(--text);
+            transition: background-color 9999s ease-in-out 0s;
+        }
 
         .btn {
             display: inline-flex;
@@ -1896,6 +1906,8 @@
     let repeatMode = 0;
     let isShowingPlaylistName = false;
     let hoverTimeout;
+    let lastSongHoverToggle = 0;
+    const SONG_HOVER_COOLDOWN_MS = 800;
     let leaveTimeout;
     let lastMouseY = 0;
     let horizontalTolerance = 0;
@@ -1912,17 +1924,18 @@
         localStorage.setItem('shuffleFavorites', JSON.stringify(favorites));
     }
 
-    // Логика переключения (Toggle) при наведении
+    // Логика переключения (Toggle) при наведении + кулдаун чтобы не прыгало от любого движения мыши
     function handleSongMouseEnter(e) {
         clearTimeout(hoverTimeout);
-        
+        const sinceLast = Date.now() - lastSongHoverToggle;
+        if (sinceLast < SONG_HOVER_COOLDOWN_MS) return;
         hoverTimeout = setTimeout(() => {
-            if (isShowingPlaylistName) {
-                showSongName();
-            } else {
-                showPlaylistName();
-            }
-        }, 150); // Небольшая задержка от случайных срабатываний
+            // Ещё раз проверяем после задержки — вдруг был быстрый повторный вход
+            if (Date.now() - lastSongHoverToggle < SONG_HOVER_COOLDOWN_MS) return;
+            lastSongHoverToggle = Date.now();
+            if (isShowingPlaylistName) showSongName();
+            else showPlaylistName();
+        }, 150);
     }
 
     // Показать название плейлиста
