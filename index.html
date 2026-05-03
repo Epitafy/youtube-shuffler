@@ -1060,16 +1060,23 @@
             #spinner { display: none; }
             .lobby-pill { gap: 6px; padding: 4px 8px; }
 
+            /* main — flex колонка по всей оставшейся высоте вьюпорта.
+               Плеер фиксированной высоты (16:9), очередь растягивается на оставшееся.
+               Если список длиннее экрана — страница скроллится целиком. */
             main {
+                display: flex;
+                flex-direction: column;
                 grid-template-columns: 1fr;
-                grid-template-rows: auto auto;
+                grid-template-rows: none;
                 overflow: visible;
+                min-height: 0;
             }
 
             .player-pane {
                 border-right: none;
                 border-bottom: 1px solid var(--border);
                 overflow: visible;
+                flex: 0 0 auto;
             }
             .video-wrap {
                 flex: 0 0 auto;
@@ -1110,18 +1117,24 @@
             .controls-stack .brightness-slider { flex: 1; width: auto; }
 
             .queue-pane {
-                /* Сама колонка переезжает под плеер (через grid-template-rows: auto auto),
-                   очередь больше не должна быть внутренним скроллом — пусть страница
-                   скроллит её целиком, иначе на телефоне получаешь два вложенных скролла. */
+                /* Очередь растягивается на всю оставшуюся высоту main, поэтому свободного
+                   места между регуляторами и списком больше не остаётся. */
                 overflow: visible;
+                flex: 1 1 auto;
+                min-height: 0;
             }
             #queue-section, #favorites-section {
                 overflow: visible !important;
+                flex: 1 1 auto;
+                min-height: 0;
             }
             .queue-list {
+                /* Внутри очереди скролл не включаем — весь скролл на уровне страницы,
+                   но лист растягивается, чтобы empty-state заполнил весь оставшийся вьюпорт. */
                 overflow-y: visible;
-                flex: none;
+                flex: 1 1 auto;
                 max-height: none;
+                min-height: 0;
             }
         }
 
